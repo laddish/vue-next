@@ -63,3 +63,8 @@ export {
   onScopeDispose
 } from './effectScope'
 export { TrackOpTypes, TriggerOpTypes } from './operations'
+
+/**
+ * 导包
+ * 对外暴露一些方法 方便外界使用
+ */

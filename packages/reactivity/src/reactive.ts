@@ -39,6 +39,9 @@ const enum TargetType {
 }
 
 function targetTypeMap(rawType: string) {
+  // 如果是 对象或者数组 那么是普通类型
+  // 如果是 Map Set WeakMap WeakSet 类型那么是 COLLECTION 集合类型
+  // 其余情况为 INVALID 类型
   switch (rawType) {
     case 'Object':
     case 'Array':
@@ -54,6 +57,7 @@ function targetTypeMap(rawType: string) {
 }
 
 function getTargetType(value: Target) {
+  // 如果一个值有 SKIP 则不可被代理 如果不可被扩展 则不可被代理
   return value[ReactiveFlags.SKIP] || !Object.isExtensible(value)
     ? TargetType.INVALID
     : targetTypeMap(toRawType(value))
@@ -87,14 +91,16 @@ export type UnwrapNestedRefs<T> = T extends Ref ? T : UnwrapRefSimple<T>
 export function reactive<T extends object>(target: T): UnwrapNestedRefs<T>
 export function reactive(target: object) {
   // if trying to observe a readonly proxy, return the readonly version.
+  // 如果这个对象已经被 readonly 代理过了，则直接返回
+  // 被 readonly 代理过就会添加 proxy，取值时会走 get 方法 所以直接返回
   if (target && (target as Target)[ReactiveFlags.IS_READONLY]) {
     return target
   }
   return createReactiveObject(
-    target,
+    target,// (arr obj)  (map set)
     false,
-    mutableHandlers,
-    mutableCollectionHandlers,
+    mutableHandlers, //new Proxy 对应的 handler
+    mutableCollectionHandlers, //collection Handlers
     reactiveMap
   )
 }
@@ -177,7 +183,19 @@ export function shallowReadonly<T extends object>(
     shallowReadonlyMap
   )
 }
-
+/**
+ * 流程梳理：
+ * 1.判断对象；
+ * 2.重复代理情况；
+ * 3.对不同类型进行proxy；
+ * 4.做缓存；
+ * @param target 
+ * @param isReadonly 
+ * @param baseHandlers 
+ * @param collectionHandlers 
+ * @param proxyMap 
+ * @returns 
+ */
 function createReactiveObject(
   target: Target,
   isReadonly: boolean,
@@ -185,34 +203,48 @@ function createReactiveObject(
   collectionHandlers: ProxyHandler<any>,
   proxyMap: WeakMap<Target, any>
 ) {
+  //reactive 只接受对象
   if (!isObject(target)) {
     if (__DEV__) {
+      // 开发模式下 警告
       console.warn(`value cannot be made reactive: ${String(target)}`)
     }
+    // 不是对象直接返回
     return target
   }
-  // target is already a Proxy, return it.
+  // target is already a Proxy, return it. 
+  // 目标已经被代理 直接返回
   // exception: calling readonly() on a reactive object
+  // 如果被 reactive 处理过的对象 还可以继续被 readonly 处理
+  // readonly(reactive(obj))
   if (
+    // 可以使用toRaw方法获取被代理过对象对应的原值
     target[ReactiveFlags.RAW] &&
     !(isReadonly && target[ReactiveFlags.IS_REACTIVE])
   ) {
     return target
   }
   // target already has corresponding Proxy
+  // 如果已经被代理了就返回 说明一个对象不能被重复代理
   const existingProxy = proxyMap.get(target)
   if (existingProxy) {
     return existingProxy
   }
   // only a whitelist of value types can be observed.
+  // 只有 白名单类型 才能被代理 会看一看能不能被代理 
+  // 如果被 markRaw 过，就无法被代理
   const targetType = getTargetType(target)
   if (targetType === TargetType.INVALID) {
+    // 不可扩展则直接返回
     return target
   }
+  // 核心 创建proxy
+  // 对 集合的处理（collectionHandlers） 和 普通的对象（baseHandlers） 略有不同
   const proxy = new Proxy(
     target,
     targetType === TargetType.COLLECTION ? collectionHandlers : baseHandlers
   )
+  // 最终把代理放到 WeakMap 缓存中
   proxyMap.set(target, proxy)
   return proxy
 }

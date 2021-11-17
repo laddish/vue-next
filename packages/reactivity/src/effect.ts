@@ -43,20 +43,22 @@ export type DebuggerEventExtraInfo = {
   oldValue?: any
   oldTarget?: Map<any, any> | Set<any>
 }
-
+// 创建effect栈 包装effect执行顺序正确
 const effectStack: ReactiveEffect[] = []
+// 当前正在执行的effect
 let activeEffect: ReactiveEffect | undefined
 
 export const ITERATE_KEY = Symbol(__DEV__ ? 'iterate' : '')
 export const MAP_KEY_ITERATE_KEY = Symbol(__DEV__ ? 'Map key iterate' : '')
 
 export class ReactiveEffect<T = any> {
-  active = true
-  deps: Dep[] = []
+  active = true //是否激活
+  deps: Dep[] = [] //effect对应的属性
+  // effect(()=>state.name+state.age)
 
   // can be attached after creation
   computed?: boolean
-  allowRecurse?: boolean
+  allowRecurse?: boolean //运行effect重复执行
   onStop?: () => void
   // dev only
   onTrack?: (event: DebuggerEvent) => void
@@ -72,12 +74,16 @@ export class ReactiveEffect<T = any> {
   }
 
   run() {
+    // active默认为true
     if (!this.active) {
+      // 如果不是active的
       return this.fn()
     }
     if (!effectStack.includes(this)) {
+      // 栈里面没有
       try {
         effectStack.push((activeEffect = this))
+        // 启用依赖收集
         enableTracking()
 
         trackOpBit = 1 << ++effectTrackDepth
@@ -85,9 +91,10 @@ export class ReactiveEffect<T = any> {
         if (effectTrackDepth <= maxMarkerBits) {
           initDepMarkers(this)
         } else {
+          // 清理 重新收集依赖
           cleanupEffect(this)
         }
-        return this.fn()
+        return this.fn() //get方法
       } finally {
         if (effectTrackDepth <= maxMarkerBits) {
           finalizeDepMarkers(this)
@@ -147,15 +154,17 @@ export function effect<T = any>(
   options?: ReactiveEffectOptions
 ): ReactiveEffectRunner {
   if ((fn as ReactiveEffectRunner).effect) {
+    // 已经是effect 再被effect 取出函数 重新创建effect
     fn = (fn as ReactiveEffectRunner).effect.fn
   }
-
+  // 创建响应式effect
   const _effect = new ReactiveEffect(fn)
   if (options) {
     extend(_effect, options)
     if (options.scope) recordEffectScope(_effect, options.scope)
   }
   if (!options || !options.lazy) {
+    // 立即执行
     _effect.run()
   }
   const runner = _effect.run.bind(_effect) as ReactiveEffectRunner
@@ -206,6 +215,7 @@ export function track(target: object, type: TrackOpTypes, key: unknown) {
 }
 
 export function isTracking() {
+  // 是否要收集依赖
   return shouldTrack && activeEffect !== undefined
 }
 

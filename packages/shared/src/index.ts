@@ -67,8 +67,11 @@ export const objectToString = Object.prototype.toString
 export const toTypeString = (value: unknown): string =>
   objectToString.call(value)
 
+  // 拿到具体类型
 export const toRawType = (value: unknown): string => {
   // extract "RawType" from strings like "[object RawType]"
+  // 调用 Object.prototype.toString 方法 返回的字符串 为 [object RawType]
+  // 截取掉[object ]
   return toTypeString(value).slice(8, -1)
 }
 
