@@ -1,23 +1,29 @@
+// 为什么能识别出来 @
 import { isObject, toRawType, def } from '@vue/shared'
+
+// 在 baseHandlers 中不同的处理函数
 import {
-  mutableHandlers,
-  readonlyHandlers,
-  shallowReactiveHandlers,
-  shallowReadonlyHandlers
+  mutableHandlers, //reactive
+  readonlyHandlers, //readonly
+  shallowReactiveHandlers, //shallowReactive
+  shallowReadonlyHandlers //shallowReadonly
 } from './baseHandlers'
+
+
 import {
   mutableCollectionHandlers,
   readonlyCollectionHandlers,
   shallowCollectionHandlers,
   shallowReadonlyCollectionHandlers
 } from './collectionHandlers'
+
 import { UnwrapRefSimple, Ref } from './ref'
 
 export const enum ReactiveFlags {
-  SKIP = '__v_skip',
-  IS_REACTIVE = '__v_isReactive',
-  IS_READONLY = '__v_isReadonly',
-  RAW = '__v_raw'
+  SKIP = '__v_skip',//跳过标记
+  IS_REACTIVE = '__v_isReactive',//响应式标记
+  IS_READONLY = '__v_isReadonly',//只读标记
+  RAW = '__v_raw'//原对象标记
 }
 
 export interface Target {
@@ -27,6 +33,7 @@ export interface Target {
   [ReactiveFlags.RAW]?: any
 }
 
+// 四种类型 的 映射表  创建reative的时候 传入对应的映射表
 export const reactiveMap = new WeakMap<Target, any>()
 export const shallowReactiveMap = new WeakMap<Target, any>()
 export const readonlyMap = new WeakMap<Target, any>()
@@ -39,7 +46,7 @@ const enum TargetType {
 }
 
 function targetTypeMap(rawType: string) {
-  // 如果是 对象或者数组 那么是普通类型
+  // 如果是 对象或者数组 那么是 COMMON 普通类型
   // 如果是 Map Set WeakMap WeakSet 类型那么是 COLLECTION 集合类型
   // 其余情况为 INVALID 类型
   switch (rawType) {
@@ -68,7 +75,7 @@ export type UnwrapNestedRefs<T> = T extends Ref ? T : UnwrapRefSimple<T>
 
 /**
  * Creates a reactive copy of the original object.
- *
+ * 创建一个原对象的响应式拷贝
  * The reactive conversion is "deep"—it affects all nested properties. In the
  * ES2015 Proxy based implementation, the returned proxy is **not** equal to the
  * original object. It is recommended to work exclusively with the reactive
@@ -97,8 +104,8 @@ export function reactive(target: object) {
     return target
   }
   return createReactiveObject(
-    target,// (arr obj)  (map set)
-    false,
+    target, // (arr obj)  (map set)
+    false, // 不是只读
     mutableHandlers, //new Proxy 对应的 handler
     mutableCollectionHandlers, //collection Handlers
     reactiveMap
@@ -119,7 +126,7 @@ export function shallowReactive<T extends object>(
 ): ShallowReactive<T> {
   return createReactiveObject(
     target,
-    false,
+    false, // 不是只读
     shallowReactiveHandlers,
     shallowCollectionHandlers,
     shallowReactiveMap
@@ -159,7 +166,7 @@ export function readonly<T extends object>(
 ): DeepReadonly<UnwrapNestedRefs<T>> {
   return createReactiveObject(
     target,
-    true,
+    true, // 只读
     readonlyHandlers,
     readonlyCollectionHandlers,
     readonlyMap
@@ -177,7 +184,7 @@ export function shallowReadonly<T extends object>(
 ): Readonly<{ [K in keyof T]: UnwrapNestedRefs<T[K]> }> {
   return createReactiveObject(
     target,
-    true,
+    true, // 不是只读
     shallowReadonlyHandlers,
     shallowReadonlyCollectionHandlers,
     shallowReadonlyMap
@@ -185,16 +192,17 @@ export function shallowReadonly<T extends object>(
 }
 /**
  * 流程梳理：
- * 1.判断对象；
- * 2.重复代理情况；
- * 3.对不同类型进行proxy；
+ * 1.判断是否是对象；
+ * 2.重复代理情况；（需要做一个映射表，来查看是否被代理过）
+ *   
+ * 3.对不同类型进行proxy； get/set
  * 4.做缓存；
- * @param target 
- * @param isReadonly 
- * @param baseHandlers 
- * @param collectionHandlers 
- * @param proxyMap 
- * @returns 
+ * @param target 原对象
+ * @param isReadonly 是否只读
+ * @param baseHandlers 处理函数
+ * @param collectionHandlers 集合处理函数
+ * @param proxyMap 每种类型不同的映射表
+ * @returns
  */
 function createReactiveObject(
   target: Target,
@@ -203,7 +211,7 @@ function createReactiveObject(
   collectionHandlers: ProxyHandler<any>,
   proxyMap: WeakMap<Target, any>
 ) {
-  //reactive 只接受对象
+  //reactive 只接受对象 不是对象不拦截 直接返回
   if (!isObject(target)) {
     if (__DEV__) {
       // 开发模式下 警告
@@ -212,7 +220,7 @@ function createReactiveObject(
     // 不是对象直接返回
     return target
   }
-  // target is already a Proxy, return it. 
+  // target is already a Proxy, return it.
   // 目标已经被代理 直接返回
   // exception: calling readonly() on a reactive object
   // 如果被 reactive 处理过的对象 还可以继续被 readonly 处理
@@ -226,25 +234,28 @@ function createReactiveObject(
   }
   // target already has corresponding Proxy
   // 如果已经被代理了就返回 说明一个对象不能被重复代理
+  // 在 缓存 中取出这个对象是否存在代理 
   const existingProxy = proxyMap.get(target)
+  // 如果已经被代理了 直接返回即可
   if (existingProxy) {
     return existingProxy
   }
   // only a whitelist of value types can be observed.
-  // 只有 白名单类型 才能被代理 会看一看能不能被代理 
+  // 只有 白名单类型 才能被代理 会看一看能不能被代理
   // 如果被 markRaw 过，就无法被代理
   const targetType = getTargetType(target)
   if (targetType === TargetType.INVALID) {
     // 不可扩展则直接返回
     return target
   }
-  // 核心 创建proxy
+
+  // 最核心的代码 创建proxy 传入 原对象和handlers
   // 对 集合的处理（collectionHandlers） 和 普通的对象（baseHandlers） 略有不同
   const proxy = new Proxy(
     target,
     targetType === TargetType.COLLECTION ? collectionHandlers : baseHandlers
   )
-  // 最终把代理放到 WeakMap 缓存中
+  // 最终把 对象 和 代理 放到 WeakMap 缓存起来
   proxyMap.set(target, proxy)
   return proxy
 }

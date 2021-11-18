@@ -30,6 +30,7 @@ export const isOn = (key: string) => onRE.test(key)
 
 export const isModelListener = (key: string) => key.startsWith('onUpdate:')
 
+// 合并
 export const extend = Object.assign
 
 export const remove = <T>(arr: T[], el: T) => {
@@ -40,6 +41,7 @@ export const remove = <T>(arr: T[], el: T) => {
 }
 
 const hasOwnProperty = Object.prototype.hasOwnProperty
+// target key
 export const hasOwn = (
   val: object,
   key: string | symbol
@@ -56,6 +58,7 @@ export const isFunction = (val: unknown): val is Function =>
   typeof val === 'function'
 export const isString = (val: unknown): val is string => typeof val === 'string'
 export const isSymbol = (val: unknown): val is symbol => typeof val === 'symbol'
+// 公共函数 是不是对象 返回true 表示是对象 返回false表示不是对象
 export const isObject = (val: unknown): val is Record<any, any> =>
   val !== null && typeof val === 'object'
 
@@ -130,6 +133,7 @@ export const toHandlerKey = cacheStringFunction((str: string) =>
   str ? `on${capitalize(str)}` : ``
 )
 
+// 判断两个值是否相同
 // compare whether a value has changed, accounting for NaN.
 export const hasChanged = (value: any, oldValue: any): boolean =>
   !Object.is(value, oldValue)

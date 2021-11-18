@@ -1,4 +1,5 @@
 /*
+负责打包package下的所有的包
 Produces production builds and stitches together d.ts files.
 
 To specify the package to build, simply pass its name and the desired build
@@ -17,6 +18,7 @@ nr build core --formats cjs
 const fs = require('fs-extra')
 const path = require('path')
 const chalk = require('chalk')
+// 开启子进程 最终还是使用rollup进行打包
 const execa = require('execa')
 const { gzipSync } = require('zlib')
 const { compress } = require('brotli')
@@ -53,6 +55,7 @@ async function buildAll(targets) {
   await runParallel(require('os').cpus().length, targets, build)
 }
 
+// 并行打包 返回一个promise
 async function runParallel(maxConcurrency, source, iteratorFn) {
   const ret = []
   const executing = []
@@ -68,11 +71,14 @@ async function runParallel(maxConcurrency, source, iteratorFn) {
       }
     }
   }
+  // 返回一个promise
   return Promise.all(ret)
 }
 
 async function build(target) {
+  // 读取packages下的包
   const pkgDir = path.resolve(`packages/${target}`)
+  // 读取包下面的package.json
   const pkg = require(`${pkgDir}/package.json`)
 
   // if this is a full build (no specific targets), ignore private packages

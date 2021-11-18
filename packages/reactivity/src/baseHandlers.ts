@@ -1,4 +1,13 @@
 import {
+  // vue3的代理是懒代理
+  // 对象的属性如果还是对象只有取值的时候才会去代理
+  // vue2的代理 是 一上来就递归代理
+  // vue3的代理是走到getter里面
+  // 如果取得是对象的某个值
+  // 还是一个对象
+  // 当取值时会进行代理
+  // 如果标记是 只读 就需要再用readonly 包起来
+  // 如果不是只读 采用reactive包起来
   reactive,
   readonly,
   toRaw,
@@ -24,7 +33,7 @@ import {
   hasChanged,
   isArray,
   isIntegerKey,
-  extend,
+  extend, //合并对象方法 实际上就是 Object.assign
   makeMap
 } from '@vue/shared'
 import { isRef } from './ref'
@@ -41,9 +50,19 @@ const builtInSymbols = new Set(
     .filter(isSymbol)
 )
 
+/**
+ * 四种不同的handler对应 不同的getter方法
+ * 根据不同的参数 生成不同的getter方法
+ * @param isReadonly 默认false
+ * @param shallow 默认false
+ */
+// mutableHandlers
 const get = /*#__PURE__*/ createGetter()
+// shallowReactiveHandlers
 const shallowGet = /*#__PURE__*/ createGetter(false, true)
+// readonlyHandlers
 const readonlyGet = /*#__PURE__*/ createGetter(true)
+// shallowReadonlyHandlers
 const shallowReadonlyGet = /*#__PURE__*/ createGetter(true, true)
 
 const arrayInstrumentations = /*#__PURE__*/ createArrayInstrumentations()
@@ -95,9 +114,11 @@ function createArrayInstrumentations() {
   return instrumentations
 }
 // 如果对象被代理过 取值就会执行get方法
+
 /**
+ * 根据不同参数 创建一个getter方法
  * get baseHandler
- * 取值的时候
+ * 取值的时候 会触发get
  * 会对数组类型进行单独处理
  * 对ref进行处理
  * @param isReadonly
@@ -106,14 +127,17 @@ function createArrayInstrumentations() {
  */
 function createGetter(isReadonly = false, shallow = false) {
   // 进行依赖收集
-  return function get(target: Target, key: string | symbol, receiver: object) {
+  return function get(
+    target: Target, //目标
+    key: string | symbol, //键
+    receiver: object
+  ) {
     if (key === ReactiveFlags.IS_REACTIVE) {
       // 用来判断这个对象时 reactive 还是 readonly
       // 不是 readonly 就是 reactive
       return !isReadonly
     } else if (key === ReactiveFlags.IS_READONLY) {
       // 获取 IS_READONLY 属性 是不是只读
-
       return isReadonly
     } else if (
       // 把一个代理对象的原始对象给返回
@@ -137,11 +161,11 @@ function createGetter(isReadonly = false, shallow = false) {
     if (!isReadonly && targetIsArray && hasOwn(arrayInstrumentations, key)) {
       return Reflect.get(arrayInstrumentations, key, receiver)
     }
-
+    // 使用 Reflect.get(target, key, receiver) 来取值 相当于 target[key]
     const res = Reflect.get(target, key, receiver)
 
     if (
-      // 如果是 Symbol 内置key 或者是 原型链 查找到的 直接返回
+      // 如果key是 Symbol 内置key 或者是 原型链 查找到的 直接返回
       // 不需要收集他们的依赖
       isSymbol(key) ? builtInSymbols.has(key) : isNonTrackableKeys(key)
     ) {
@@ -149,19 +173,22 @@ function createGetter(isReadonly = false, shallow = false) {
     }
 
     if (!isReadonly) {
+      // 需要收集依赖
+      // 当 effect 里面初次获取值的时候 对应值的getter会走到这里
+      // 如果传入的 isReadonly 不是只读的 就说明需要收集依赖
       // 如果不是readonly 那么就依赖收集
       track(target, TrackOpTypes.GET, key)
     }
 
     if (shallow) {
-      // 如果是浅的 就不需要被代理
+      // 如果是浅的 就直接返回
+      // 就不需要被代理
       return res
     }
 
     if (isRef(res)) {
       // 如果reactive包裹的是ref
       // 则自动解包 res.value
-
       // ref unwrapping - does not apply for Array + integer key.
       // 不适用于 数组 和 数字下标的情况
       const shouldUnwrap = !targetIsArray || !isIntegerKey(key)
@@ -169,9 +196,10 @@ function createGetter(isReadonly = false, shallow = false) {
     }
 
     if (isObject(res)) {
-      // 如果是对象
-      // 如果是readonly 就用readonly包裹起来
-      // 不是就用reactive包裹起来
+      // 如果取的对象的属性还是一个对象
+      // 有可能递归
+      // 如果传入的是只读 就用readonly包裹起来
+      // 不是只读 就用reactive包裹起来
       // Convert returned value into a proxy as well. we do the isObject check
       // here to avoid invalid value warning. Also need to lazy access readonly
       // and reactive here to avoid circular dependency.
@@ -181,10 +209,13 @@ function createGetter(isReadonly = false, shallow = false) {
     return res
   }
 }
-// 创建set方法
+// 创建set方法 set值的时候需要执行Map里面的effect
 const set = /*#__PURE__*/ createSetter()
 const shallowSet = /*#__PURE__*/ createSetter(true)
+
 /**
+ * 设置值的时候
+ * 会触发setter
  * 对新增和修改做不同的处理
  * @param shallow
  * @returns
@@ -192,10 +223,11 @@ const shallowSet = /*#__PURE__*/ createSetter(true)
 function createSetter(shallow = false) {
   return function set(
     target: object,
-    key: string | symbol,
-    value: unknown,
-    receiver: object
+    key: string | symbol, //原对象的某个属性
+    value: unknown, //新值
+    receiver: object //代理对象
   ): boolean {
+    // 先拿到老的值
     let oldValue = (target as any)[key]
     if (!shallow) {
       // 对象被深层代理了 reactive({r:1})
@@ -214,16 +246,23 @@ function createSetter(shallow = false) {
     }
     // 判断是新增还是修改
     const hadKey =
+      // 判断数组 和是否是 整型key
       isArray(target) && isIntegerKey(key)
+      // 看一下改的值是不是长度以内 是的话就说明已有
         ? Number(key) < target.length
         : hasOwn(target, key)
+    // 使用Reflect.set(target, key, value, receiver)
+    // 相当于 target[key] = value
+    // 具备了 返回值
     const result = Reflect.set(target, key, value, receiver)
     // don't trigger if target is something up in the prototype chain of original
     // 如果 目标 是 原值 原型链上的方法
     if (target === toRaw(receiver)) {
       if (!hadKey) {
+        // 新增
         trigger(target, TriggerOpTypes.ADD, key, value)
       } else if (hasChanged(value, oldValue)) {
+        // 修改
         trigger(target, TriggerOpTypes.SET, key, value, oldValue)
       }
     }
@@ -254,6 +293,9 @@ function ownKeys(target: object): (string | symbol)[] {
   return Reflect.ownKeys(target)
 }
 
+/**
+ * mutableHandlers
+ */
 export const mutableHandlers: ProxyHandler<object> = {
   get,
   set,
@@ -261,11 +303,15 @@ export const mutableHandlers: ProxyHandler<object> = {
   has,
   ownKeys
 }
-
+/**
+ * readonlyHandlers
+ * set 和 deleteProperty 无意义
+ */
 export const readonlyHandlers: ProxyHandler<object> = {
   get: readonlyGet,
   set(target, key) {
     if (__DEV__) {
+      // 开发模式下 警告
       console.warn(
         `Set operation on key "${String(key)}" failed: target is readonly.`,
         target
@@ -284,6 +330,10 @@ export const readonlyHandlers: ProxyHandler<object> = {
   }
 }
 
+/**
+ * shallowReactiveHandlers
+ * 继承 extend mutableHandlers
+ */
 export const shallowReactiveHandlers = /*#__PURE__*/ extend(
   {},
   mutableHandlers,
@@ -293,6 +343,10 @@ export const shallowReactiveHandlers = /*#__PURE__*/ extend(
   }
 )
 
+/**
+ * shallowReadonlyHandlers
+ * 继承 extend readonlyHandlers
+ */
 // Props handlers are special in the sense that it should not unwrap top-level
 // refs (in order to allow refs to be explicitly passed down), but should
 // retain the reactivity of the normal readonly object.

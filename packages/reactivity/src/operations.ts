@@ -7,6 +7,7 @@ export const enum TrackOpTypes {
   ITERATE = 'iterate'
 }
 
+// 触发类型
 export const enum TriggerOpTypes {
   SET = 'set',
   ADD = 'add',

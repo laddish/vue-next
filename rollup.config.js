@@ -14,11 +14,14 @@ const packageDir = path.resolve(packagesDir, process.env.TARGET)
 const resolve = p => path.resolve(packageDir, p)
 const pkg = require(resolve(`package.json`))
 const packageOptions = pkg.buildOptions || {}
+// 取出文件名
 const name = packageOptions.filename || path.basename(packageDir)
 
 // ensure TS checks only once for each build
 let hasTSChecked = false
 
+// 对打包类型 先做一个映射表
+// 根据提供的formats 来格式化需要打包的内容
 const outputConfigs = {
   'esm-bundler': {
     file: resolve(`dist/${name}.esm-bundler.js`),
@@ -102,6 +105,7 @@ function createConfig(format, output, plugins = []) {
 
   const tsPlugin = ts({
     check: process.env.NODE_ENV === 'production' && !hasTSChecked,
+    // 使用的配置
     tsconfig: path.resolve(__dirname, 'tsconfig.json'),
     cacheRoot: path.resolve(__dirname, 'node_modules/.rts2_cache'),
     tsconfigOverride: {
@@ -180,15 +184,19 @@ function createConfig(format, output, plugins = []) {
         ]
       : []
 
+  // 返回的配置
   return {
     input: resolve(entryFile),
     // Global and Browser ESM builds inlines everything so that they can be
     // used alone.
     external,
+    // 插件
     plugins: [
       json({
         namedExports: false
       }),
+      // npx tsc --init
+      // 需要tsconfig.json
       tsPlugin,
       createReplacePlugin(
         isProductionBuild,

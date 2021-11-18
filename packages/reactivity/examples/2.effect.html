@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <script src="../dist/reactivity.global.js"></script>
+  <div id="app"></div>
+</body>
+
+<script>
+  // 副作用函数
+  const {
+    reactive,
+    effect
+  } = VueReactivity;
+  let state = reactive({name:"zf",age:12,other:"xxx"})
+  // 取值时存起来 改值时重新执行effect
+  // 默认执行时会进行取值操作 只要取值就会调用get方法 
+  // 可以将对应的effect函数存放起来
+  effect(() => {
+    app.innerHTML = "珠峰今年" + state.name + "," + state.age
+  })
+  effect(() => {
+    app.innerHTML = "测试" + state.name + "," + state.age
+  })
+
+  setTimeout(() => {
+    // 更改name属性 走的set方法
+    // 重新执行对应的effect方法
+    state.name = "hello"
+  }, 1000)
+
+</script>
+
+</html>
