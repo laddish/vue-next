@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <script src="../dist/reactivity.global.js"></script>
+  <div id="app"></div>
+</body>
+
+<script>
+  // 副作用函数
+  const {
+    ref,
+    effect,
+    toRef
+  } = VueReactivity;
+  // 将普通类型转化成一个对象
+  // 这个对象有value属性 指向原来的值
+  // let name =ref("zf")
+  // new Proxy 的第一个参数 需要是对象
+
+
+  let nameObj = ref({
+    name: "zf"
+  })
+  console.log("ref-nameObj", nameObj)
+  let name = ref("zf")
+  console.log("ref-name", name)
+
+  let state = {
+    name: "zf"
+  }
+  // 传入对象/或响应式对象 和 对象的属性
+  let nameRef = toRef(state, "name")
+
+  effect(() => {
+    // 默认会执行 会依赖收集 收集effect
+    app.innerHTML = name.value // track
+  })
+
+  setTimeout(() => {
+    name.value = "jw" //trigger
+  }, 1000)
+</script>
+
+</html>

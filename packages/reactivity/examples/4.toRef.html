@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>toRef</title>
+</head>
+
+<body>
+  <script src="../dist/reactivity.global.js"></script>
+  <div id="app"></div>
+  <script>
+    const {
+      ref,
+      effect,
+      toRef,toRefs,
+      reactive
+    } = VueReactivity;
+
+    // let proxy = {name:"zf"}
+    let proxy = reactive({
+      name: "zf",age:11
+    })
+    let r = toRef(proxy, "name")
+    let r1 = toRefs(proxy)
+    // r.value = "xxx"
+    // console.log(r)
+    // console.log(proxy)
+
+    // effect(() => {
+    //   app.innerHTML = proxy.name
+    // })
+    let {name,age} = toRefs(proxy)
+    // effect(() => {
+    //   app.innerHTML = r.value
+    // })
+    // effect(() => {
+    //   app.innerHTML = r1.name.value + r1.name.age
+    // })
+    effect(() => {
+      app.innerHTML = name.value + age.value
+    })
+
+    setTimeout(() => {
+      proxy.name = "jw"
+    }, 1000)
+  </script>
+</body>
+
+</html>

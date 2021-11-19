@@ -9,7 +9,6 @@ import {
   shallowReadonlyHandlers //shallowReadonly
 } from './baseHandlers'
 
-
 import {
   mutableCollectionHandlers,
   readonlyCollectionHandlers,
@@ -20,10 +19,10 @@ import {
 import { UnwrapRefSimple, Ref } from './ref'
 
 export const enum ReactiveFlags {
-  SKIP = '__v_skip',//跳过标记
-  IS_REACTIVE = '__v_isReactive',//响应式标记
-  IS_READONLY = '__v_isReadonly',//只读标记
-  RAW = '__v_raw'//原对象标记
+  SKIP = '__v_skip', //跳过标记
+  IS_REACTIVE = '__v_isReactive', //响应式标记
+  IS_READONLY = '__v_isReadonly', //只读标记
+  RAW = '__v_raw' //原对象标记
 }
 
 export interface Target {
@@ -194,7 +193,7 @@ export function shallowReadonly<T extends object>(
  * 流程梳理：
  * 1.判断是否是对象；
  * 2.重复代理情况；（需要做一个映射表，来查看是否被代理过）
- *   
+ *
  * 3.对不同类型进行proxy； get/set
  * 4.做缓存；
  * @param target 原对象
@@ -234,7 +233,7 @@ function createReactiveObject(
   }
   // target already has corresponding Proxy
   // 如果已经被代理了就返回 说明一个对象不能被重复代理
-  // 在 缓存 中取出这个对象是否存在代理 
+  // 在 缓存 中取出这个对象是否存在代理
   const existingProxy = proxyMap.get(target)
   // 如果已经被代理了 直接返回即可
   if (existingProxy) {
@@ -284,7 +283,8 @@ export function markRaw<T extends object>(value: T): T {
   def(value, ReactiveFlags.SKIP, true)
   return value
 }
-
+// 传入的值 如果是对象 就转换成 reactive
+// 如果不是对象 就返回值
 export const toReactive = <T extends unknown>(value: T): T =>
   isObject(value) ? reactive(value) : value
 

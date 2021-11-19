@@ -22,14 +22,17 @@ export interface WritableComputedOptions<T> {
   get: ComputedGetter<T>
   set: ComputedSetter<T>
 }
-
+/**
+ * 创建ComputedRefImpl
+ */
 class ComputedRefImpl<T> {
   public dep?: Dep = undefined
 
   private _value!: T
   private _dirty = true
+  //默认取值的时候不要用缓存 是脏的
   public readonly effect: ReactiveEffect<T>
-
+  // 标记是一个ref
   public readonly __v_isRef = true
   public readonly [ReactiveFlags.IS_READONLY]: boolean
 
@@ -38,6 +41,7 @@ class ComputedRefImpl<T> {
     private readonly _setter: ComputedSetter<T>,
     isReadonly: boolean
   ) {
+    // 第二个参数 scheduler
     this.effect = new ReactiveEffect(getter, () => {
       if (!this._dirty) {
         this._dirty = true
@@ -47,9 +51,12 @@ class ComputedRefImpl<T> {
     this[ReactiveFlags.IS_READONLY] = isReadonly
   }
 
+  // getter 计算属性computed也要收集依赖
+  // vue2中计算属性没有收集依赖
   get value() {
     // the computed ref may get wrapped by other proxies e.g. readonly() #3376
     const self = toRaw(this)
+    // 收集依赖 使用set来存放副作用
     trackRefValue(self)
     if (self._dirty) {
       self._dirty = false
@@ -58,6 +65,7 @@ class ComputedRefImpl<T> {
     return self._value
   }
 
+  // setter
   set value(newValue: T) {
     this._setter(newValue)
   }
@@ -71,6 +79,13 @@ export function computed<T>(
   options: WritableComputedOptions<T>,
   debugOptions?: DebuggerOptions
 ): WritableComputedRef<T>
+
+/**
+ *
+ * @param getterOrOptions 可能是一个函数 或者一个对象（包含getter 和 setter）
+ * @param debugOptions
+ * @returns
+ */
 export function computed<T>(
   getterOrOptions: ComputedGetter<T> | WritableComputedOptions<T>,
   debugOptions?: DebuggerOptions
@@ -81,16 +96,19 @@ export function computed<T>(
   const onlyGetter = isFunction(getterOrOptions)
   if (onlyGetter) {
     getter = getterOrOptions
+    // 默认没有setter 如果设置值 在开发模式下警告
     setter = __DEV__
       ? () => {
           console.warn('Write operation failed: computed value is readonly')
         }
       : NOOP
   } else {
+    // 使用选项的getter 和 setter
     getter = getterOrOptions.get
     setter = getterOrOptions.set
   }
-
+  // 很像ref
+  // 如果是只有getter 那么只读 否则可写
   const cRef = new ComputedRefImpl(getter, setter, onlyGetter || !setter)
 
   if (__DEV__ && debugOptions) {

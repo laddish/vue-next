@@ -56,6 +56,7 @@ let activeEffect: ReactiveEffect | undefined
 export const ITERATE_KEY = Symbol(__DEV__ ? 'iterate' : '')
 export const MAP_KEY_ITERATE_KEY = Symbol(__DEV__ ? 'Map key iterate' : '')
 
+// 创建响应式effect
 export class ReactiveEffect<T = any> {
   active = true // 是否激活
   deps: Dep[] = [] // effect对应的属性
@@ -77,7 +78,7 @@ export class ReactiveEffect<T = any> {
   ) {
     recordEffectScope(this, scope)
   }
-
+  // run方法 用于执行传入的effect
   run() {
     // active默认为true
     if (!this.active) {
@@ -177,7 +178,7 @@ export function effect<T = any>(
     // 已经是effect 再被effect 取出函数 重新创建effect
     fn = (fn as ReactiveEffectRunner).effect.fn
   }
-  // 创建响应式effect
+  // 创建响应式effect 上面有 run 方法
   const _effect = new ReactiveEffect(fn)
   if (options) {
     extend(_effect, options)
@@ -287,9 +288,9 @@ export function isTracking() {
   return shouldTrack && activeEffect !== undefined
 }
 
-//
+//跟踪 dep 对应的依赖
 export function trackEffects(
-  dep: Dep,
+  dep: Dep, //是一个set集合
   debuggerEventExtraInfo?: DebuggerEventExtraInfo
 ) {
   let shouldTrack = false
@@ -356,7 +357,7 @@ export function trigger(
     return
   }
   // deps 为 空数组
-  // 要将所有要执行的effect 全部存到一个新的集合中 
+  // 要将所有要执行的effect 全部存到一个新的集合中
   // 最终一起执行
   let deps: (Dep | undefined)[] = []
   if (type === TriggerOpTypes.CLEAR) {
@@ -377,7 +378,6 @@ export function trigger(
       }
     })
   } else {
-
     // schedule runs for SET | ADD | DELETE
     if (key !== void 0) {
       deps.push(depsMap.get(key))
@@ -443,7 +443,7 @@ export function trigger(
   }
 }
 
-// 批量处理 effects 批量执行 
+// 批量处理 effects 批量执行
 export function triggerEffects(
   dep: Dep | ReactiveEffect[],
   debuggerEventExtraInfo?: DebuggerEventExtraInfo

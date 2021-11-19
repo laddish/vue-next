@@ -17,7 +17,7 @@ type TrackedMarkers = {
    */
   n: number
 }
-// 使用 set 用于去重
+// 创建依赖 的时候  使用 set 数据结构 用于对依赖的 effect 去重
 export const createDep = (effects?: ReactiveEffect[]): Dep => {
   const dep = new Set<ReactiveEffect>(effects) as Dep
   dep.w = 0

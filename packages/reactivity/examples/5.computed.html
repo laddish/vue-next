@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>toRef</title>
+</head>
+
+<body>
+  <script src="../dist/reactivity.global.js"></script>
+  <div id="app"></div>
+  <script>
+    const {
+      ref,
+      effect,
+      toRef,
+      toRefs,
+      reactive,
+      computed
+    } = VueReactivity;
+
+    // 缓存 computed 
+    // effect(lazy) + scheduler + 缓存的标识
+    const age = ref(18)
+    const myAge = computed(() => {
+      // 此方法默认不会执行
+      return age.value + 10
+    })
+    const myAge = computed({
+      get() {
+        return age.value + 10
+      },
+      set() {}
+    })
+    // 当访问属性的时候执行
+    myAge.value
+    myAge.value //存在缓存
+
+    age.value = 100; //更新age myAge不会立刻重新计算
+    myAge.value //再次计算最新之
+  </script>
+</body>
+
+</html>
